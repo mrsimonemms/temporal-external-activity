@@ -1,0 +1,18 @@
+{
+  "template": "https://github.com/mrsimonemms/new",
+  "commit": "575419a2c0d81d09e68c8a42d027c32b138f1b71",
+  "checkout": "main",
+  "context": {
+    "cookiecutter": {
+      "project_name": "temporal-external-activity",
+      "description": "A Temporal workflow with a long running external activity",
+      "author": "Simon Emms <simon@simonemms.com>",
+      "_template": "https://github.com/mrsimonemms/new",
+      "_commit": "575419a2c0d81d09e68c8a42d027c32b138f1b71"
+    }
+  },
+  "directory": "blank",
+  "skip": [
+    ".git"
+  ]
+}
