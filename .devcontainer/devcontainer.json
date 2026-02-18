@@ -5,7 +5,8 @@
     "ghcr.io/devcontainers-extra/features/temporal-cli:1": {},
     "ghcr.io/azutake/devcontainer-features/go-packages-install:0": {
       "PACKAGES": "github.com/air-verse/air@latest"
-    }
+    },
+    "ghcr.io/devcontainers-extra/features/digitalocean-cli:1": {}
   },
   "customizations": {
     "vscode": {

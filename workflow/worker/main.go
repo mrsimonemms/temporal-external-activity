@@ -52,7 +52,28 @@ func exec() error {
 
 	w.RegisterWorkflow(wf.TriggerExternalWorkflow)
 
-	w.RegisterActivity(wf.NewActivities())
+	// Set the connection envvars for the long-running activity
+	temporalEnvKeys := []string{
+		"TEMPORAL_API_KEY",
+		"TEMPORAL_ADDRESS",
+		"TEMPORAL_NAMESPACE",
+		"TEMPORAL_TLS",
+	}
+
+	// Get the current envvars set
+	temporalEnvVars := map[string]string{}
+	for _, k := range temporalEnvKeys {
+		temporalEnvVars[k] = os.Getenv(k)
+	}
+
+	activities, err := wf.NewActivities(os.Getenv("DIGITALOCEAN_ACCESS_TOKEN"), temporalEnvVars)
+	if err != nil {
+		return gh.FatalError{
+			Cause: err,
+			Msg:   "Error creating activities",
+		}
+	}
+	w.RegisterActivity(activities)
 
 	log.Info().Msg("Starting worker")
 	if err := w.Run(worker.InterruptCh()); err != nil {

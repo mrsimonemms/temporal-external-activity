@@ -24,10 +24,16 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
+type ExternalWorkflowRequest struct {
+	Registry   string `json:"registry"`
+	Repository string `json:"repository"`
+	Tag        string `json:"tag"`
+}
+
 // This workflow exists to create a long-running activity hosted somewhere else
 // This could be use to simulate running a long-running Kubernetes job or in
 // an AWS BatchJob
-func TriggerExternalWorkflow(ctx workflow.Context) error {
+func TriggerExternalWorkflow(ctx workflow.Context, data ExternalWorkflowRequest) (retErr error) {
 	name := workflow.GetInfo(ctx).WorkflowType.Name
 	logger := workflow.GetLogger(ctx)
 
@@ -48,26 +54,60 @@ func TriggerExternalWorkflow(ctx workflow.Context) error {
 
 	var a *Activities
 
+	// Run any activities before we need the long-running activity - this example
+	// just has a sleep
 	logger.Debug("Having a small sleep")
 	if err := workflow.Sleep(ctx, 5*time.Second); err != nil {
 		return fmt.Errorf("error sleeping: %w", err)
 	}
 
+	// Now create the long running app
 	logger.Debug("Create the external activity runner")
-	if err := workflow.ExecuteActivity(ctx, a.Create, heartbeatTimeout).Get(ctx, nil); err != nil {
+	var result *CreateResponse
+	if err := workflow.ExecuteActivity(ctx, a.Create, data).Get(ctx, &result); err != nil {
 		logger.Error("Error running create activity", "error", err)
 		return fmt.Errorf("error running create activity: %w", err)
 	}
 
-	opts := workflow.GetActivityOptions(ctx)
-	// @todo(sje): this will be an ID from previous activity
-	opts.TaskQueue = "externalTaskQueue"
-	actx := workflow.WithActivityOptions(ctx, opts)
+	// Once we get to here, we need to clean up the activity runner - the
+	// defer function ensures we always run this before this workflow ends
+	defer func() {
+		logger.Debug("Cleaning up the external runner")
+		if err := workflow.ExecuteActivity(ctx, a.Delete, result.App.ID).Get(ctx, nil); err != nil {
+			logger.Error("Error running delete activity", "error", err)
+			if retErr == nil {
+				retErr = err
+			}
+		}
 
-	if err := workflow.ExecuteActivity(actx, "long-running-command", time.Minute, heartbeatTimeout).Get(actx, nil); err != nil {
+		logger.Info("Trigger External workflow finished", "name", name)
+	}()
+
+	// Wait until the app is deployed and ready
+	logger.Debug("Wait until app is built", "app", result.App.ID)
+	if err := workflow.ExecuteActivity(ctx, a.WaitForAppBuild, result.App.ID, heartbeatTimeout).Get(ctx, nil); err != nil {
+		logger.Error("Error waiting for app to be built", "error", err, "app", result.App.ID)
+		return fmt.Errorf("error waiting for app to be built: %w", err)
+	}
+
+	// Configure the activity to call the activities on the long-running app
+	opts := workflow.GetActivityOptions(ctx)
+	opts.TaskQueue = result.TaskQueue
+	appCtx := workflow.WithActivityOptions(ctx, opts)
+
+	// Call the long-running command on the app
+	if err := workflow.ExecuteActivity(appCtx, "long-running-command", time.Minute, heartbeatTimeout).Get(appCtx, nil); err != nil {
 		logger.Error("Error running external activity", "error", err)
 		return fmt.Errorf("error running external activity: %w", err)
 	}
 
-	return nil
+	// Run any activities before we need the long-running activity - this example
+	// just has a sleep. Notice how we use the `ctx` context rather than the
+	// `appCtx`
+	logger.Debug("Having a final small sleep")
+	if err := workflow.Sleep(ctx, 5*time.Second); err != nil {
+		return fmt.Errorf("error sleeping: %w", err)
+	}
+
+	return
 }

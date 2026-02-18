@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Build with
+#   docker build \
+#     --platform linux/amd64 \
+#     -t registry.digitalocean.com/sje-test-registry/external .
+
 FROM golang AS builder
 ENV CGO_ENABLED=0
 ENV GOOS=linux

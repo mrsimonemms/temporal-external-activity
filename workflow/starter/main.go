@@ -53,8 +53,27 @@ func exec() error {
 		TaskQueue: wf.TaskQueue,
 	}
 
+	// Set image defaults
+	registry := "sje-test-registry"
+	repository := "external"
+	tag := "latest"
+
+	if s, ok := os.LookupEnv("IMAGE_REGISTRY"); ok {
+		registry = s
+	}
+	if s, ok := os.LookupEnv("IMAGE_REPOSITORY"); ok {
+		repository = s
+	}
+	if s, ok := os.LookupEnv("IMAGE_TAG"); ok {
+		tag = s
+	}
+
 	ctx := context.Background()
-	we, err := c.ExecuteWorkflow(ctx, workflowOptions, wf.TriggerExternalWorkflow)
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, wf.TriggerExternalWorkflow, wf.ExternalWorkflowRequest{
+		Registry:   registry,
+		Repository: repository,
+		Tag:        tag,
+	})
 	if err != nil {
 		return gh.FatalError{
 			Cause: err,
