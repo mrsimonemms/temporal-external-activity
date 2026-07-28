@@ -19,3 +19,8 @@ else
 	@cruft check || cruft update --skip-apply-ask --refresh-private-variables
 endif
 .PHONY: cruft-update
+
+docker-build:
+	@docker build --platform linux/amd64 -t registry.digitalocean.com/${IMAGE_REGISTRY}/${IMAGE_REPOSITORY}:${IMAGE_TAG} external
+	@docker push registry.digitalocean.com/${IMAGE_REGISTRY}/${IMAGE_REPOSITORY}:${IMAGE_TAG}
+.PHONY: docker-build
